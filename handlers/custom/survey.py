@@ -1,6 +1,8 @@
+from telebot.util import user_link
+
 from loader import bot
 from states.contact_info import UserInfoState
-from telebot.types import Message, CallbackQuery
+from telebot.types import Message, CallbackQuery, ReplyKeyboardRemove
 import pycountry
 import logging
 from database.bd import get_cities_by_country
@@ -62,7 +64,7 @@ def get_age(m: Message) -> None:
 
 @bot.message_handler(state=UserInfoState.country)
 def get_country(m: Message):
-    logging.info(f'[get_age] user={m.from_user.username}, text={m.text}]')
+    logging.info(f'[get_country] user={m.from_user.username}, text={m.text}]')
 
     try:
         c = pycountry.countries.lookup(m.text.strip())
@@ -75,16 +77,20 @@ def get_country(m: Message):
         data["country"] = c.name
         data["country_code"] = code
 
+        logging.info(f'[get_country] User input: {m.text.strip()}, Normalized and saved: {c.name}')
+
     cities = get_cities_by_country(code)
     if not cities:
         load_cities_for_country(code, limit=10)  # подгружаем
         cities = get_cities_by_country(code)  # читаем снова
 
     if not cities:
+        logging.warning(f"[get_country] Failed to load cities for country: {code}")
+
         return bot.send_message(chat_id=m.chat.id, text="Cities not loaded yet, try later.")
 
     kb = generate_city_keyboard(cities[:10])
-    bot.send_message(m.chat.id, "Choose your city:", reply_markup=kb)
+    bot.send_message(chat_id=m.chat.id, text="Choose your city:", reply_markup=kb)
     bot.set_state(user_id=m.from_user.id, state=UserInfoState.city, chat_id=m.chat.id)
 
     logging.info('[get_country] Move to state CITY')
@@ -92,19 +98,67 @@ def get_country(m: Message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("city_"), state=UserInfoState.city)
 def handle_city(call: CallbackQuery):
+    logging.info(f'[handle_city] user={call.from_user.username}, text={call.data.split('_',1)[1]}')
+
     bot.answer_callback_query(callback_query_id=call.id)
     city = call.data.split("_",1)[1]
 
     with bot.retrieve_data(user_id=call.from_user.id, chat_id=call.message.chat.id) as data:
         data["city"] = city
 
+    logging.info(f'[handle_city] Saved city: {city}')
+
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"You chose: {city}")
     bot.set_state(user_id=call.from_user.id, state=UserInfoState.phone_num, chat_id=call.message.chat.id)
     bot.send_message(chat_id=call.message.chat.id, text="Last: Can u send me your phone number?", reply_markup=request_contact())
 
+    logging.info('[handle_city] Move to state PHONE_NUM')
 
-    @bot.message_handler(content_type=['text', 'contact'], state=UserInfoState.phone_num)
-    def get_contact(m: Message):
-        if m.content_type == 'contact':
-            with bot.retrieve_data(user_id=m.from_user.id, chat_id=m.chat.id) as data:
 
+@bot.message_handler(state=UserInfoState.phone_num, content_types=['contact', 'text'])
+def get_contact(m: Message):
+    phone = None
+
+    if m.content_type == 'contact' and m.contact:
+        phone = m.contact.phone_number
+        logging.info(f'[get_contact] user={m.from_user.username}, sented contact: {phone}')
+
+    elif m.content_type == 'text':
+        text = (m.text or '').strip().lower()
+        logging.info(f'[get_contact] user={m.from_user.username}, text={text!r}')
+
+        if text in {'no', 'skip', 'не отправлять', 'нет', 'не хочу'}:
+            phone = None
+        else:
+            return bot.reply_to(message=m, text='Press "send" to sent your contact information '
+                                                'or "no" to skip this step')
+
+    with bot.retrieve_data(user_id=m.from_user.id, chat_id=m.chat.id) as data:
+        if phone:
+            data['phone_num'] = phone
+
+        summary_lines = [
+            'Thank you! We use your data only to test this bot.',
+            'Your shared data:',
+            f'Name: {data.get("name", "-")}',
+            f'Age: {data.get("age", "-")}',
+            f'Country: {data.get("country", "-")}',
+            f'City: {data.get("city", "-")}',
+            f'Phone Number: {data.get("phone_num", "-")}'
+        ]
+
+        summary = '\n'.join(summary_lines)
+
+    logging.info(f'[get_contact] User shared contact' if phone else '[get_contact] Contact skipped')
+
+    bot.send_message(chat_id=m.chat.id,
+                     text='Ok, we\'ll skip your contact.\n\n' + summary if not phone
+                     else summary, reply_markup=ReplyKeyboardRemove())
+
+    logging.info('SUMMARY SENT TO USER')
+
+    # завершаем опрос и чистим состояние
+    bot.delete_state(user_id=m.from_user.id, chat_id=m.chat.id)
+    logging.info('[get_contact] State deleted - survey finished!')
+    # или переходим к следующему состоянию
+    # bot.set_state(m.from_user.id, UserInfoState.next_step, m.chat.id)
