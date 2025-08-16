@@ -1,5 +1,3 @@
-from telebot.util import user_link
-
 from loader import bot
 from states.contact_info import UserInfoState
 from telebot.types import Message, CallbackQuery, ReplyKeyboardRemove
@@ -81,8 +79,8 @@ def get_country(m: Message):
 
     cities = get_cities_by_country(code)
     if not cities:
-        load_cities_for_country(code, limit=10)  # подгружаем
-        cities = get_cities_by_country(code)  # читаем снова
+        load_cities_for_country(code, limit=10)
+        cities = get_cities_by_country(code)
 
     if not cities:
         logging.warning(f"[get_country] Failed to load cities for country: {code}")
@@ -157,8 +155,8 @@ def get_contact(m: Message):
 
     logging.info('SUMMARY SENT TO USER')
 
-    # завершаем опрос и чистим состояние
+    # finish the survey and clear the state
     bot.delete_state(user_id=m.from_user.id, chat_id=m.chat.id)
     logging.info('[get_contact] State deleted - survey finished!')
-    # или переходим к следующему состоянию
+    # or move to the next state
     # bot.set_state(m.from_user.id, UserInfoState.next_step, m.chat.id)

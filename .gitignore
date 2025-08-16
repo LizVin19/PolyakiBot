@@ -1,31 +1,56 @@
-# Python
+# === Python ===
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.so
-.build/
-build/
-dist/
-.eggs/
 *.egg-info/
-.pytest_cache/
-.mypy_cache/
-.coverage*
-.cache/
-*.log
+*.egg
+*.manifest
+*.spec
 
-# Environments
-.env
-.env.*
-venv/
+# Byte-compiled / optimized / DLL files
+*.so
+*.dll
+
+# Virtual environment
 .venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE / Editors
-.idea/
-.vscode/
+# Jupyter / IPython
+.ipynb_checkpoints/
+
+# === Environment variables ===
+.env
+# keep example file!
+!.env.example
+
+# === Databases ===
+*.db
+*.sqlite
+*.sqlite3
+
+# === Logs & cache ===
+*.log
+*.tmp
+*.cache/
+*.bak
 *.swp
 
-# OS
+# === OS files ===
 .DS_Store
 Thumbs.db
+
+# === IDEs ===
+# PyCharm / JetBrains
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# === Others ===
+tree.txt

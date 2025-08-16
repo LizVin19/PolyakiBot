@@ -1,6 +1,5 @@
 import logging
 import time
-
 import requests
 from config import API_URL, API_KEY, API_HOST
 from database.bd import insert_cities
@@ -21,8 +20,8 @@ HEADERS = {
 
 def load_cities_for_country(country_code: str, limit: int = 10):
     """
-    Скачиваем топ-`limit` городов для страны с кодом country_code
-    и сохраняем их в таблицу cities через insert_cities().
+    Download the top limit cities for the country with the code country_code
+    and save them into the cities table using insert_cities().
     """
     params = {
         'countryIds': country_code,
@@ -30,7 +29,6 @@ def load_cities_for_country(country_code: str, limit: int = 10):
         'sort': '-population'
     }
 
-    # resp = requests.get(API_URL, headers=HEADERS, params=params)
     resp = get_with_retries(API_URL, headers=HEADERS, params=params)
     if resp is None:
         return []
