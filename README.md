@@ -11,7 +11,7 @@
 - **Optional step skipping** (e.g., contact sharing)
 - **Final summary** of collected data
 - **Logging** for debugging and analytics
-- **Retry logic** for failed operations (`backoff`
+- **Retry logic** for failed operations (`backoff`)
 
 ___
 
@@ -19,9 +19,11 @@ ___
 ## Tech Stack
 
 - Python 3.11+
-- [pyTelegramBotAPI](https://pypi.org/project/pyTelegramBotAPI/)
-- SQLite (for users and cities storage)
-- [pycountry](https://pypi.org/project/pycountry/)
+- [pyTelegramBotAPI](https://pypi.org/project/pyTelegramBotAPI/) - Telegram Bot API wrapper
+- SQLite - local database for:
+    - storing fetched cities ('cities.db')
+    - storing user survey results ('users.db')
+- [pycountry](https://pypi.org/project/pycountry/) - country lookup and normalization
 - [GeoDB Cities API](https://rapidapi.com/wirefreethought/api/geodb-cities/) via RapidAPI — for fetching cities by country
 - [python-dotenv](https://pypi.org/project/python-dotenv/) - for environment variable management
 - Built-in `logging` for logging
@@ -29,7 +31,6 @@ ___
 ## Project Structure
 
 ```text
-├```text
 PolyakiBot/
 ├── main.py                # Entry point for running the bot
 ├── loader.py              # Bot and dependencies initialization
@@ -63,6 +64,7 @@ PolyakiBot/
 ```
 
 
+
 ## Getting Started
 
 ### 1. Clone the repository
@@ -92,9 +94,13 @@ cp .env.example .env
 In `.env`:
 ```ini
 BOT_TOKEN=your_telegram_bot_token
-USERS_DB_PATH=./database/users.db
-CITIES_DB_PATH=./database/cities.db
+API_KEY=your_geodb_api_key
+API_URL=https://wft-geo-db.p.rapidapi.com/v1/geo/cities
 ```
+BOT_TOKEN — get it from @BotFather in Telegram
+API_KEY — get it on RapidAPI GeoDB Cities
+API_URL — base URL for the GeoDB API (already set by default)
+
 ### 5. Populate the cities database (if empty)
 ```bash
 python load_cities.py
@@ -107,12 +113,17 @@ python main.py
 
 
 ## Example Flow
-1. User enters their name
-2. Enters age
-3. Selects country (partial matching supported)
-4. Selects city from dynamically loaded list
-5. Sends contact or skips
-6. Receives a final summary of their input
+1. User starts the survey with the `/survey` command.  
+2. Bot asks for the **name** → only letters are accepted.  
+3. Bot asks for the **age** → must be digits (validated, e.g. 1–120).  
+4. Bot asks for the **country** → normalized using `pycountry` (partial matches supported).  
+5. Bot shows a list of top cities for the chosen country:
+   - fetched from **GeoDB API** (RapidAPI) if not in the local database
+   - saved into the **SQLite database** for future use
+6. Bot asks for the **phone number** → user can share their contact or type *"no"/"skip"*.
+7. All collected data is stored in the local `users.db` database.
+8. Bot shows a **summary of collected data** and finishes the survey (state cleared).  
+
 
 
 ## License 
